@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBALo_PSF-JMzVCx0q6O1zb_i_j4Ptx6q8",
+ 
   authDomain: "wastecut.firebaseapp.com",
   projectId: "wastecut",
   storageBucket: "wastecut.firebasestorage.app",
