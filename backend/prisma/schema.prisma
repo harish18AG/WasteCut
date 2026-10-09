@@ -1,0 +1,190 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  ADMIN
+  DONOR
+  NGO
+  RECIPIENT
+}
+
+enum FoodCategory {
+  VEGETARIAN
+  NON_VEGETARIAN
+  BAKERY
+  FRUITS
+  VEGETABLES
+  RICE
+  SNACKS
+  BEVERAGES
+  DAIRY
+  DESSERTS
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  PENDING
+  ACCEPTED
+  PICKED_UP
+  DELIVERED
+  EXPIRED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum PickupStatus {
+  SCHEDULED
+  EN_ROUTE
+  ARRIVED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  avatarUrl     String?
+  role          UserRole       @default(DONOR)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Profile extensions
+  donorProfile  DonorProfile?
+  ngoProfile    NgoProfile?
+  recipientProfile RecipientProfile?
+
+  // Relations
+  sentNotifications Notification[]
+  feedbackSent     Feedback[]      @relation("FeedbackSender")
+  reportsGenerated Report[]
+}
+
+model DonorProfile {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  donorType    String     // e.g. "RESTAURANT", "HOTEL", "INDIVIDUAL"
+  address      String
+  latitude     Float?
+  longitude    Float?
+  donations    Donation[]
+}
+
+model NgoProfile {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registrationId String
+  address      String
+  latitude     Float?
+  longitude    Float?
+  pickups      Pickup[]
+}
+
+model RecipientProfile {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address      String
+  latitude     Float?
+  longitude    Float?
+  requests     Request[]
+}
+
+model Donation {
+  id                String             @id @default(uuid())
+  donorId           String
+  donor             DonorProfile       @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  foodName          String
+  category          FoodCategory
+  quantity          String             // e.g. "10 kg", "20 servings"
+  description       String?
+  preparationTime   DateTime
+  expiryTime        DateTime
+  pickupTime        DateTime
+  pickupAddress     String
+  latitude          Float?
+  longitude         Float?
+  imageUrl          String?
+  status            AvailabilityStatus @default(AVAILABLE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  requests          Request[]
+  pickups           Pickup[]
+}
+
+model Request {
+  id            String        @id @default(uuid())
+  donationId    String
+  donation      Donation      @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  recipientId   String
+  recipient     RecipientProfile @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  quantityNeeded String
+  status        RequestStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  pickups       Pickup[]
+}
+
+model Pickup {
+  id              String       @id @default(uuid())
+  donationId      String
+  donation        Donation     @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  ngoId           String
+  ngo             NgoProfile   @relation(fields: [ngoId], references: [id], onDelete: Cascade)
+  requestId       String?
+  request         Request?     @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  scheduledTime   DateTime
+  status          PickupStatus @default(SCHEDULED)
+  deliveryConfirm String?      // Code or verification note
+  otpCode         String?      // OTP code for verification
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   // User ID
+  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Feedback {
+  id          String   @id @default(uuid())
+  senderId    String
+  sender      User     @relation("FeedbackSender", fields: [senderId], references: [id], onDelete: Cascade)
+  rating      Int
+  comments    String
+  createdAt   DateTime @default(now())
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  generatedById String
+  generatedBy User     @relation(fields: [generatedById], references: [id], onDelete: Cascade)
+  reportType  String   // e.g. "DONATION_TRENDS", "WASTE_REDUCTION"
+  dataJson    String   // Structured data for display / export
+  createdAt   DateTime @default(now())
+}
